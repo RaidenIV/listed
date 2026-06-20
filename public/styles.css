@@ -823,20 +823,19 @@
     body { overflow-x: hidden; }
 
     .topnav {
-      grid-template-columns: 1fr auto;
-      gap: 8px 10px;
+      grid-template-columns: 1fr;
+      gap: 8px;
       padding: 10px 12px;
     }
-    .topnav-brand { min-width: 0; }
+    .topnav-brand {
+      min-width: 0;
+      align-items: center;
+      text-align: center;
+    }
     .topnav-logo { font-size: 22px; }
     .topnav-sub { display: none; }
-    .topnav-actions { grid-column: 2; grid-row: 1; }
-    .topnav-logout {
-      padding: 7px 10px;
-      font-size: 0;
-      gap: 0;
-    }
-    .topnav-logout .ti { font-size: 20px; }
+    .topnav-actions { display: none; }
+    .topnav-logout { display: none; }
     .topnav-nav {
       grid-column: 1 / -1;
       grid-row: 2;
