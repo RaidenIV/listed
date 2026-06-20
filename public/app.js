@@ -68,30 +68,6 @@
   const money = (n) =>
     Number(n) === 0 ? 'Free' : '$' + Number(n).toLocaleString('en-US');
 
-  function updateProfileNavAvatar(user = state.user) {
-    const avatar = $('profileNavAvatar');
-    const icon = $('profileNavIcon');
-    if (!avatar || !icon) return;
-
-    const url = (user?.profile?.avatar_url || '').trim();
-    if (!url) {
-      avatar.hidden = true;
-      avatar.removeAttribute('src');
-      icon.hidden = false;
-      return;
-    }
-
-    avatar.src = url;
-    avatar.alt = `${user?.profile?.display_name || 'User'} profile photo`;
-    avatar.hidden = false;
-    icon.hidden = true;
-    avatar.onerror = () => {
-      avatar.hidden = true;
-      avatar.removeAttribute('src');
-      icon.hidden = false;
-    };
-  }
-
   function cardHTML(l) {
     const proBadge = l.tier === 'pro'
       ? '<div class="l-vbadge-pro">Pro Seller</div>' : '';
@@ -367,15 +343,47 @@
   });
 
   /* ── Profile gate ── */
+  function updateProfileModalHeader(profile = {}) {
+    const avatarPreview = $('profileAvatarPreview');
+    const avatarFallback = $('profileAvatarFallback');
+    const verifiedEmail = $('profileVerifiedEmail');
+    const avatarUrl = String(profile.avatar_url || '').trim();
+
+    avatarPreview.onerror = () => {
+      avatarPreview.removeAttribute('src');
+      avatarPreview.hidden = true;
+      avatarFallback.hidden = false;
+    };
+
+    if (avatarUrl) {
+      avatarPreview.src = avatarUrl;
+      avatarPreview.hidden = false;
+      avatarFallback.hidden = true;
+    } else {
+      avatarPreview.removeAttribute('src');
+      avatarPreview.hidden = true;
+      avatarFallback.hidden = false;
+    }
+
+    if (state.user?.verified && state.user?.email) {
+      verifiedEmail.textContent = `Verified email: ${state.user.email}`;
+      verifiedEmail.hidden = false;
+    } else {
+      verifiedEmail.textContent = '';
+      verifiedEmail.hidden = true;
+    }
+  }
+
   function fillProfileForm(profile = {}) {
     $('p-display-name').value = profile.display_name || '';
     $('p-city').value = profile.city || state.location || 'Columbus, OH';
     $('p-avatar').value = profile.avatar_url || '';
     $('p-bio').value = profile.bio || '';
+    updateProfileModalHeader(profile);
   }
 
   function openProfile({ required = false } = {}) {
-    $('profileTitle').textContent = required ? 'Create your profile' : 'Your profile';
+    $('profileTitle').textContent = required ? 'Create your profile' : 'Your Profile';
     $('profileIntro').textContent = required
       ? 'Create a profile to access the marketplace.'
       : 'Update how you appear to buyers and sellers.';
@@ -407,7 +415,6 @@
       });
       state.user = user;
       state.profileComplete = !!user.profileComplete;
-      updateProfileNavAvatar(user);
       state.location = user.profile?.city || state.location;
       setLocBtn(state.location);
       markLocOption(state.location);
@@ -550,6 +557,9 @@
   $('sellSubmit').addEventListener('click', submitSell);
   $('profileSubmit').addEventListener('click', saveProfile);
   $('profileLogout').addEventListener('click', logout);
+  $('p-avatar').addEventListener('input', () => {
+    updateProfileModalHeader({ ...(state.user?.profile || {}), avatar_url: $('p-avatar').value });
+  });
 
   /* ── Nav items: views, sell, "coming soon" stubs ── */
   document.querySelectorAll('.nav-item').forEach((link) => {
@@ -643,7 +653,6 @@
       if (!user) { location.href = '/login'; return; }
       state.user = user;
       state.profileComplete = !!user.profileComplete;
-      updateProfileNavAvatar(user);
       if (user.profile?.city) {
         state.location = user.profile.city;
         setLocBtn(state.location);

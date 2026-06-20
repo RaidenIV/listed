@@ -113,24 +113,6 @@
   .nav-item .material-symbols-outlined {
     font-size: 20px;
   }
-  .nav-avatar-wrap {
-    width: 20px;
-    height: 20px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .nav-avatar {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    object-fit: cover;
-    display: block;
-    border: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .nav-avatar[hidden] { display: none; }
-
   .nav-item:hover { color: var(--brand); }
   .nav-item.active { color: var(--brand); }
 
@@ -616,6 +598,42 @@
     border-bottom: 1px solid var(--border);
   }
   .modal-head h3 { font-size: 17px; font-weight: 800; color: var(--text-primary); }
+  .profile-modal-head { align-items: flex-start; }
+  .profile-head-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .profile-modal-avatar,
+  .profile-modal-avatar-fallback {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    flex: 0 0 42px;
+  }
+  .profile-modal-avatar {
+    display: block;
+    object-fit: cover;
+    background: var(--surface);
+  }
+  .profile-modal-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--brand-light);
+    color: var(--brand);
+  }
+  .profile-modal-avatar-fallback .ti { font-size: 22px; }
+  .profile-title-copy { min-width: 0; }
+  .profile-verified-email {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
   .modal-close {
     background: var(--surface);
     border: none;
@@ -630,7 +648,7 @@
   .modal-body { padding: 22px; }
 
   /* ── Sell form ── */
-  .field { margin-bottom: 16px; min-width: 0; }
+  .field { margin-bottom: 16px; }
   .field label {
     display: block;
     font-size: 12px;
@@ -643,8 +661,6 @@
   .field textarea,
   .field select {
     width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
     border: 1px solid var(--border-mid);
     border-radius: 10px;
     padding: 11px 13px;
@@ -662,13 +678,13 @@
     border-color: var(--brand);
     box-shadow: 0 0 0 3px var(--brand-border);
   }
-  .field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-  .price-wrap { position: relative; min-width: 0; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .price-wrap { position: relative; }
   .price-wrap span {
     position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
     color: var(--text-secondary); font-size: 14px; pointer-events: none;
   }
-  .price-wrap input { padding-left: 26px; box-sizing: border-box; }
+  .price-wrap input { padding-left: 26px; }
   .profile-intro {
     color: var(--text-secondary);
     font-size: 13px;

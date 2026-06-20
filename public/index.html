@@ -38,10 +38,7 @@
       <span class="notif-dot"></span>
     </a>
     <a class="nav-item" href="#" data-action="profile">
-      <span class="nav-avatar-wrap" aria-hidden="true">
-        <i class="ti ti-user" id="profileNavIcon"></i>
-        <img class="nav-avatar" id="profileNavAvatar" alt="" hidden>
-      </span>
+      <i class="ti ti-user"></i>
       Profile
     </a>
   </nav>
@@ -216,8 +213,15 @@
 <!-- Profile modal -->
 <div class="modal-overlay" id="profileOverlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
-    <div class="modal-head">
-      <h3 id="profileTitle">Create your profile</h3>
+    <div class="modal-head profile-modal-head">
+      <div class="profile-head-left">
+        <span class="profile-modal-avatar-fallback" id="profileAvatarFallback"><i class="ti ti-user"></i></span>
+        <img class="profile-modal-avatar" id="profileAvatarPreview" alt="Profile avatar" hidden>
+        <div class="profile-title-copy">
+          <h3 id="profileTitle">Create your profile</h3>
+          <div class="profile-verified-email" id="profileVerifiedEmail" hidden></div>
+        </div>
+      </div>
       <button class="modal-close" id="profileClose" data-close="profile" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div class="modal-body">
