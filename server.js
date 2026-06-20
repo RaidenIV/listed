@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { createStore } = require('./db');
-const { sendVerificationEmail, sendProfileCreatedEmail, emailConfigured } = require('./email');
+const { sendVerificationEmail, sendProfileCreatedEmail, emailConfigured, smtpConfigured, resendConfigured } = require('./email');
 
 const app = express();
 app.set('trust proxy', 1); // Railway terminates TLS at its edge; trust X-Forwarded-* headers
@@ -213,7 +213,7 @@ async function issueVerification(req, user) {
   await store.createEmailToken(user.id, token, new Date(Date.now() + 24 * 60 * 60 * 1000));
   const link = `${baseUrl(req)}/api/auth/verify?token=${token}`;
   const result = await sendVerificationEmail(user.email, link);
-  return { link, dev: result.dev };
+  return { link, dev: !!result.dev, sent: !!result.sent, provider: result.provider };
 }
 
 // Create an account → send the verification email (account stays inactive until verified)
@@ -235,8 +235,13 @@ app.post('/api/auth/signup', async (req, res, next) => {
       user = await store.createUser({ email, password_hash });
     }
 
-    const { link, dev } = await issueVerification(req, user);
-    const payload = { message: 'Check your email for a link to activate your account.' };
+    const { link, dev, sent, provider } = await issueVerification(req, user);
+    const payload = sent
+      ? { message: 'Check your email for a link to activate your account.', email: { sent: true, provider } }
+      : {
+          message: 'Email is not configured. Use the development verification link below, or configure SMTP/Resend.',
+          email: { sent: false, dev: true, provider },
+        };
     // Dev convenience only: expose the link when no mailer is configured (never in production).
     if (dev && process.env.NODE_ENV !== 'production') payload.devVerifyUrl = link;
     res.status(201).json(payload);
@@ -329,7 +334,7 @@ app.put('/api/profile', requireUser, async (req, res, next) => {
     let profileEmail = { sent: false, dev: false };
     if (!wasProfileComplete && hasProfile(user)) {
       const result = await sendProfileCreatedEmail(user.email, user.profile);
-      profileEmail = { sent: !result.dev, dev: !!result.dev };
+      profileEmail = { sent: !!result.sent, dev: !!result.dev, provider: result.provider };
     }
 
     res.json({ user: publicUser(user), profile: user.profile, profileEmail });
@@ -367,6 +372,15 @@ app.get(/.*/, async (req, res, next) => {
 // JSON error handler
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
+  if (err?.code === 'EMAIL_NOT_CONFIGURED') {
+    return res.status(503).json({
+      error: 'Email delivery is not configured. Add SMTP_* variables or RESEND_API_KEY and EMAIL_FROM to the deployment environment.',
+      emailConfigRequired: true,
+    });
+  }
+  if (err?.code === 'EMAIL_DELIVERY_FAILED') {
+    return res.status(502).json({ error: 'Email delivery failed. Check your email provider credentials, sender address, and domain verification.' });
+  }
   res.status(500).json({ error: 'Something went wrong on our end. Try again.' });
 });
 
@@ -375,7 +389,8 @@ store
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Listed. running on http://localhost:${PORT}  (store: ${store.kind})`);
-      console.log(`[email] ${emailConfigured ? 'SMTP configured — verification emails will send' : 'SMTP not configured — verification links log to console'}`);
+      const emailProvider = smtpConfigured ? 'SMTP' : resendConfigured ? 'Resend' : 'not configured';
+      console.log(`[email] ${emailConfigured ? `${emailProvider} configured — emails will send` : 'not configured — production email requests will fail visibly'}`);
     });
   })
   .catch((err) => {

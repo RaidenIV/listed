@@ -1,37 +1,92 @@
-// email.js — transactional email via SMTP (nodemailer).
-// If SMTP credentials aren't configured, it logs the message (and the
-// verification link) to the console instead of sending, so the flow is fully
-// testable without a mail provider. Configure SMTP_* env vars to send for real.
+// email.js — transactional email via SMTP or Resend.
+// Configure either SMTP_* variables or RESEND_API_KEY + EMAIL_FROM.
+// Email delivery is never silently faked in production. In local development,
+// missing email configuration returns a dev flag so verification links can be
+// copied from API responses while testing.
 
 const nodemailer = require('nodemailer');
 
-const isConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-const FROM = process.env.SMTP_FROM || process.env.SMTP_USER || 'Listed. <no-reply@listed.app>';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const isProduction = NODE_ENV === 'production';
 
-let transport = null;
-if (isConfigured) {
+const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+const resendConfigured = !!process.env.RESEND_API_KEY;
+const emailConfigured = smtpConfigured || resendConfigured;
+const FROM = process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || 'Listed <onboarding@resend.dev>';
+
+class EmailNotConfiguredError extends Error {
+  constructor() {
+    super('Email delivery is not configured. Set SMTP_* variables or RESEND_API_KEY and EMAIL_FROM.');
+    this.name = 'EmailNotConfiguredError';
+    this.code = 'EMAIL_NOT_CONFIGURED';
+    this.status = 503;
+  }
+}
+
+class EmailDeliveryError extends Error {
+  constructor(message) {
+    super(message || 'Email delivery failed.');
+    this.name = 'EmailDeliveryError';
+    this.code = 'EMAIL_DELIVERY_FAILED';
+    this.status = 502;
+  }
+}
+
+let smtpTransport = null;
+if (smtpConfigured) {
   const port = Number(process.env.SMTP_PORT) || 587;
-  transport = nodemailer.createTransport({
+  smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port,
-    // 465 is implicit TLS; 587/others use STARTTLS. Override with SMTP_SECURE=true/false.
     secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
 }
 
-const emailConfigured = isConfigured;
+async function sendWithResend({ to, subject, html, text }) {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from: FROM, to, subject, html, text }),
+  });
+
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const data = await response.json();
+      detail = data?.message || data?.error || JSON.stringify(data);
+    } catch (_) {
+      detail = await response.text();
+    }
+    throw new EmailDeliveryError(`Resend email failed (${response.status}): ${detail}`);
+  }
+
+  return response.json();
+}
 
 async function sendMail({ to, subject, html, text }) {
-  if (!transport) {
-    console.log('\n[email:dev] SMTP not configured — logging instead of sending');
-    console.log(`  to:      ${to}`);
-    console.log(`  subject: ${subject}`);
-    console.log(`  link/text:\n${text}\n`);
-    return { dev: true };
+  if (smtpTransport) {
+    const info = await smtpTransport.sendMail({ from: FROM, to, subject, html, text });
+    return { sent: true, provider: 'smtp', messageId: info.messageId };
   }
-  await transport.sendMail({ from: FROM, to, subject, html, text });
-  return { dev: false };
+
+  if (resendConfigured) {
+    const info = await sendWithResend({ to, subject, html, text });
+    return { sent: true, provider: 'resend', messageId: info?.id };
+  }
+
+  if (!isProduction) {
+    console.warn('\n[email:dev] Email is not configured — returning dev email content instead of sending.');
+    console.warn(`  to:      ${to}`);
+    console.warn(`  subject: ${subject}`);
+    console.warn(`  text:\n${text}\n`);
+    return { sent: false, dev: true, provider: 'dev-log' };
+  }
+
+  throw new EmailNotConfiguredError();
 }
 
 function verificationContent(link) {
@@ -115,4 +170,13 @@ async function sendProfileCreatedEmail(to, profile) {
   return sendMail({ to, subject, text, html });
 }
 
-module.exports = { sendMail, sendVerificationEmail, sendProfileCreatedEmail, emailConfigured };
+module.exports = {
+  sendMail,
+  sendVerificationEmail,
+  sendProfileCreatedEmail,
+  emailConfigured,
+  smtpConfigured,
+  resendConfigured,
+  EmailNotConfiguredError,
+  EmailDeliveryError,
+};

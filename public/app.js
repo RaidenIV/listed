@@ -388,7 +388,7 @@
       markLocOption(state.location);
       $('profileOverlay').classList.remove('open');
       if (profileEmail?.sent) toast('Profile saved. Confirmation email sent.', 'success');
-      else if (profileEmail?.dev) toast('Profile saved. Email is not configured, so no message was sent.', 'info');
+      else if (profileEmail?.dev) toast('Profile saved. Email is not configured for local development.', 'info');
       else toast('Profile saved.', 'success');
       await load();
     } catch (err) {
