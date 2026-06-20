@@ -587,7 +587,7 @@
 
   /* ════ Nav sliding pill (carried over from the prototype) ════ */
   const navList = document.querySelector('.topnav-nav');
-  const navLinks = [...document.querySelectorAll('.nav-item')];
+  const navLinks = [...document.querySelectorAll('.topnav-nav .nav-item')];
   const padX = 0, padY = 0;
 
   function setNavHover(link) {
@@ -607,7 +607,7 @@
   function clearNavHover() {
     clearTimeout(clearNavTimer);
     clearNavTimer = setTimeout(() => {
-      const active = document.querySelector('.nav-item.active');
+      const active = document.querySelector('.topnav-nav .nav-item.active');
       if (active) setNavHover(active);
     }, 800);
   }
@@ -628,10 +628,10 @@
       if (!navList.contains(e.relatedTarget)) clearNavHover();
     });
   }
-  const defaultNav = document.querySelector('.nav-item.active') || navLinks[0];
+  const defaultNav = document.querySelector('.topnav-nav .nav-item.active') || navLinks[0];
   if (defaultNav) setNavHover(defaultNav);
   window.addEventListener('resize', () => {
-    const active = document.querySelector('.nav-item.active') || defaultNav;
+    const active = document.querySelector('.topnav-nav .nav-item.active') || defaultNav;
     if (active) setNavHover(active);
   });
 
