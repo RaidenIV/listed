@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Listed. — Marketplace</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<!-- TOP NAV -->
+<header class="topnav">
+  <div class="topnav-brand">
+    <span class="topnav-logo">Listed</span>
+    <span class="topnav-sub">Real people. Real listings. Real sales.</span>
+  </div>
+
+  <nav class="topnav-nav">
+    <a class="nav-item active" href="#" data-view="explore">
+      <i class="ti ti-compass"></i>
+      Explore
+    </a>
+    <a class="nav-item" href="#" data-view="saved">
+      <i class="ti ti-heart"></i>
+      Saved
+    </a>
+    <a class="nav-item" href="#" data-action="sell">
+      <i class="ti ti-square-plus"></i>
+      Sell
+    </a>
+    <a class="nav-item" href="#" data-action="soon" data-label="Inbox">
+      <i class="ti ti-message"></i>
+      Inbox
+      <span class="notif-dot"></span>
+    </a>
+    <a class="nav-item" href="#" data-action="soon" data-label="Profile">
+      <i class="ti ti-user"></i>
+      Profile
+    </a>
+  </nav>
+
+  <div></div><!-- spacer col 3 to keep nav truly centered -->
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- Search -->
+  <label class="searchbar" for="searchInput">
+    <i class="ti ti-search"></i>
+    <input id="searchInput" type="search" placeholder="Search listings..." autocomplete="off">
+  </label>
+
+  <!-- Category pills -->
+  <div class="cats" id="cats">
+    <div class="cat-pill active" data-cat="all"><i class="ti ti-layout-grid"></i> All</div>
+    <div class="cat-pill" data-cat="vehicles"><i class="ti ti-car"></i> Vehicles</div>
+    <div class="cat-pill" data-cat="apparel"><i class="ti ti-shirt"></i> Apparel</div>
+    <div class="cat-pill" data-cat="electronics"><i class="ti ti-device-laptop"></i> Electronics</div>
+    <div class="cat-pill" data-cat="free"><i class="ti ti-gift"></i> Free</div>
+    <div class="cat-pill" data-cat="home"><i class="ti ti-home"></i> Home</div>
+    <div class="cat-pill" data-cat="tools"><i class="ti ti-tool"></i> Tools</div>
+    <div class="cat-pill" data-cat="music"><i class="ti ti-music"></i> Music</div>
+    <div class="cat-pill" data-cat="office"><i class="ti ti-briefcase"></i> Office Supplies</div>
+    <div class="cat-pill" data-cat="pets"><i class="ti ti-paw"></i> Pet Supplies</div>
+    <div class="cat-pill" data-cat="toys"><i class="ti ti-device-gamepad-2"></i> Toys &amp; Games</div>
+  </div>
+
+  <!-- Filter toolbar with centered banner -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="toolbar-text">
+        <div class="toolbar-title" id="toolbarTitle">All listings <span>·</span> Columbus</div>
+        <div class="toolbar-sub" id="toolbarSub">Loading listings…</div>
+      </div>
+      <button class="loc-btn" id="locBtn">
+        <i class="ti ti-map-pin"></i>
+        Columbus, OH
+      </button>
+    </div>
+    <div class="banner-area">
+      <span class="banner-tagline">If it's listed, it's real.</span>
+    </div>
+    <div class="toolbar-right">
+      <button class="tb-btn" id="sellBtn">
+        <i class="ti ti-square-plus"></i>
+        Sell an item
+      </button>
+      <select class="tb-select" id="sortSelect">
+        <option value="newest">Newest first</option>
+        <option value="price_asc">Price: low to high</option>
+        <option value="price_desc">Price: high to low</option>
+        <option value="closest">Closest to me</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Preferred sellers (only on default explore view) -->
+  <div class="section-preferred" id="sectionPreferred" hidden>
+    <div class="section-label"><span class="star-icon">★</span> Preferred Sellers</div>
+    <div class="grid" id="gridPreferred"></div>
+  </div>
+
+  <!-- Pro sellers (only on default explore view) -->
+  <div class="section-pro" id="sectionPro" hidden>
+    <div class="section-label">Pro Sellers</div>
+    <div class="grid" id="gridPro"></div>
+  </div>
+
+  <!-- Main results grid (everything else, or flat results when filtering/searching) -->
+  <div class="grid" id="gridMain"></div>
+
+</main>
+
+<!-- Location picker modal -->
+<div class="loc-modal-overlay" id="locOverlay">
+  <div class="loc-modal">
+    <h3>Choose your location</h3>
+    <div class="loc-option selected" data-loc="Columbus, OH"><i class="ti ti-map-pin"></i> Columbus, OH</div>
+    <div class="loc-option" data-loc="Cleveland, OH"><i class="ti ti-map-pin"></i> Cleveland, OH</div>
+    <div class="loc-option" data-loc="Cincinnati, OH"><i class="ti ti-map-pin"></i> Cincinnati, OH</div>
+    <div class="loc-option" data-loc="Dayton, OH"><i class="ti ti-map-pin"></i> Dayton, OH</div>
+    <div class="loc-option" data-loc="Toledo, OH"><i class="ti ti-map-pin"></i> Toledo, OH</div>
+    <div class="loc-option" data-loc="Akron, OH"><i class="ti ti-map-pin"></i> Akron, OH</div>
+  </div>
+</div>
+
+<!-- Sell modal -->
+<div class="modal-overlay" id="sellOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sellTitle">
+    <div class="modal-head">
+      <h3 id="sellTitle">List an item</h3>
+      <button class="modal-close" data-close="sell" aria-label="Close"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="sellError" hidden></div>
+
+      <div class="field">
+        <label for="f-title">Title</label>
+        <input id="f-title" type="text" maxlength="120" placeholder="e.g. Sony WH-1000XM5 Headphones">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-price">Price</label>
+          <div class="price-wrap">
+            <span>$</span>
+            <input id="f-price" type="number" min="0" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-category">Category</label>
+          <select id="f-category">
+            <option value="electronics">Electronics</option>
+            <option value="vehicles">Vehicles</option>
+            <option value="apparel">Apparel</option>
+            <option value="home">Home</option>
+            <option value="tools">Tools</option>
+            <option value="music">Music</option>
+            <option value="office">Office Supplies</option>
+            <option value="pets">Pet Supplies</option>
+            <option value="toys">Toys &amp; Games</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-city">City</label>
+          <select id="f-city">
+            <option>Columbus, OH</option>
+            <option>Cleveland, OH</option>
+            <option>Cincinnati, OH</option>
+            <option>Dayton, OH</option>
+            <option>Toledo, OH</option>
+            <option>Akron, OH</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-location">Neighborhood <span class="hint">(optional)</span></label>
+          <input id="f-location" type="text" placeholder="e.g. Short North">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-seller">Your name <span class="hint">(optional)</span></label>
+        <input id="f-seller" type="text" maxlength="60" placeholder="How you'll appear to buyers">
+      </div>
+
+      <div class="field">
+        <label for="f-image">Photo URL <span class="hint">(optional)</span></label>
+        <input id="f-image" type="url" placeholder="https://…">
+      </div>
+
+      <div class="field">
+        <label for="f-desc">Description <span class="hint">(optional)</span></label>
+        <textarea id="f-desc" maxlength="800" placeholder="Condition, what's included, why you're selling…"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close="sell">Cancel</button>
+        <button class="btn btn-primary" id="sellSubmit">Publish listing</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="detailOverlay">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="modal-head">
+      <h3 id="detailTitle">Listing</h3>
+      <button class="modal-close" data-close="detail" aria-label="Close"><i class="ti ti-x"></i></button>
+    </div>
+    <img class="detail-img" id="detailImg" alt="">
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
