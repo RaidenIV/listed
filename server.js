@@ -117,6 +117,7 @@ app.post('/api/listings/:id/save', requireProfile, async (req, res, next) => {
 
 const SESSION_COOKIE = 'listed_session';
 const SESSION_DAYS = 30;
+const SESSION_SHORT_HOURS = 12;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const randomToken = () => crypto.randomBytes(32).toString('hex');
 const hasProfile = (u) => !!(u && u.profile && String(u.profile.display_name || '').trim());
@@ -140,11 +141,11 @@ function parseCookies(req) {
 function secureCookies(req) {
   return process.env.NODE_ENV === 'production' || req.get('x-forwarded-proto') === 'https';
 }
-function setSessionCookie(req, res, token) {
+function setSessionCookie(req, res, token, remember = true) {
   const parts = [
     `${SESSION_COOKIE}=${token}`, 'HttpOnly', 'Path=/', 'SameSite=Lax',
-    `Max-Age=${SESSION_DAYS * 24 * 60 * 60}`,
   ];
+  if (remember) parts.push(`Max-Age=${SESSION_DAYS * 24 * 60 * 60}`);
   if (secureCookies(req)) parts.push('Secure');
   res.setHeader('Set-Cookie', parts.join('; '));
 }
@@ -201,10 +202,11 @@ function profileFromBody(body) {
   return { errors, profile: { display_name, city, bio, avatar_url } };
 }
 
-async function startSession(req, res, userId) {
+async function startSession(req, res, userId, remember = true) {
   const token = randomToken();
-  await store.createSession(userId, token, new Date(Date.now() + SESSION_DAYS * 864e5));
-  setSessionCookie(req, res, token);
+  const ttlMs = remember ? SESSION_DAYS * 864e5 : SESSION_SHORT_HOURS * 60 * 60 * 1000;
+  await store.createSession(userId, token, new Date(Date.now() + ttlMs));
+  setSessionCookie(req, res, token, remember);
 }
 
 async function issueVerification(req, user) {
@@ -287,13 +289,14 @@ app.post('/api/auth/login', async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
+    const remember = req.body?.remember !== false;
     const user = await store.getUserByEmail(email);
     const ok = user && (await bcrypt.compare(password, user.password_hash));
     if (!ok) return res.status(401).json({ error: 'Incorrect email or password.' });
     if (!user.verified) {
       return res.status(403).json({ error: 'Verify your email before signing in.', needsVerification: true });
     }
-    await startSession(req, res, user.id);
+    await startSession(req, res, user.id, remember);
     res.json({ user: publicUser(user) });
   } catch (err) { next(err); }
 });

@@ -25,6 +25,8 @@
     resendBtn: $('resendBtn'),
     goToApp: $('goToApp'),
     verifiedMsg: $('verifiedMsg'),
+    rememberRow: $('rememberRow'),
+    rememberMe: $('rememberMe'),
   };
 
   async function api(path, body) {
@@ -53,6 +55,7 @@
     els.submitBtn.textContent = signup ? 'Create account' : 'Sign in';
     els.password.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
     els.pwHint.hidden = !signup;
+    els.rememberRow.classList.toggle('visible', !signup);
     hideMessage();
   }
 
@@ -96,7 +99,7 @@
           showMessage(`Dev mode (no mailer configured): <a href="${data.devVerifyUrl}">activate your account</a>.`, 'info');
         }
       } else {
-        const { ok, status, data } = await api('/api/auth/login', { email, password });
+        const { ok, status, data } = await api('/api/auth/login', { email, password, remember: !!els.rememberMe.checked });
         if (ok) { location.href = '/'; return; }
         if (status === 403 && data.needsVerification) {
           els.sentTo.textContent = email;

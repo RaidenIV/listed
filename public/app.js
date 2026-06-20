@@ -68,6 +68,22 @@
   const money = (n) =>
     Number(n) === 0 ? 'Free' : '$' + Number(n).toLocaleString('en-US');
 
+
+  function avatarMarkup(profile = {}) {
+    const url = String(profile.avatar_url || '').trim();
+    return url
+      ? `<img src="${esc(url)}" alt="Profile photo" onerror="this.parentElement.innerHTML='<i class=&quot;ti ti-user&quot;></i>'">`
+      : '<i class="ti ti-user"></i>';
+  }
+
+  function syncUserAvatar() {
+    const html = avatarMarkup(state.user?.profile || {});
+    const navAvatar = $('navProfileAvatar');
+    const modalAvatar = $('profileModalAvatar');
+    if (navAvatar) navAvatar.innerHTML = html;
+    if (modalAvatar) modalAvatar.innerHTML = html;
+  }
+
   function cardHTML(l) {
     const proBadge = l.tier === 'pro'
       ? '<div class="l-vbadge-pro">Pro Seller</div>' : '';
@@ -343,43 +359,11 @@
   });
 
   /* ── Profile gate ── */
-  function updateProfileModalHeader(profile = {}) {
-    const avatarPreview = $('profileAvatarPreview');
-    const avatarFallback = $('profileAvatarFallback');
-    const verifiedEmail = $('profileVerifiedEmail');
-    const avatarUrl = String(profile.avatar_url || '').trim();
-
-    avatarPreview.onerror = () => {
-      avatarPreview.removeAttribute('src');
-      avatarPreview.hidden = true;
-      avatarFallback.hidden = false;
-    };
-
-    if (avatarUrl) {
-      avatarPreview.src = avatarUrl;
-      avatarPreview.hidden = false;
-      avatarFallback.hidden = true;
-    } else {
-      avatarPreview.removeAttribute('src');
-      avatarPreview.hidden = true;
-      avatarFallback.hidden = false;
-    }
-
-    if (state.user?.verified && state.user?.email) {
-      verifiedEmail.textContent = `Verified email: ${state.user.email}`;
-      verifiedEmail.hidden = false;
-    } else {
-      verifiedEmail.textContent = '';
-      verifiedEmail.hidden = true;
-    }
-  }
-
   function fillProfileForm(profile = {}) {
     $('p-display-name').value = profile.display_name || '';
     $('p-city').value = profile.city || state.location || 'Columbus, OH';
     $('p-avatar').value = profile.avatar_url || '';
     $('p-bio').value = profile.bio || '';
-    updateProfileModalHeader(profile);
   }
 
   function openProfile({ required = false } = {}) {
@@ -389,8 +373,11 @@
       : 'Update how you appear to buyers and sellers.';
     $('profileClose').hidden = required;
     $('profileLogout').hidden = false;
+    $('profileEmail').textContent = state.user?.email ? `Verified email: ${state.user.email}` : '';
+    $('profileEmail').hidden = !state.user?.email;
     $('profileError').hidden = true;
     fillProfileForm(state.user?.profile || {});
+    syncUserAvatar();
     openModal('profile');
     setTimeout(() => $('p-display-name').focus(), 60);
   }
@@ -414,8 +401,10 @@
         body: JSON.stringify(payload),
       });
       state.user = user;
+      syncUserAvatar();
       state.profileComplete = !!user.profileComplete;
       state.location = user.profile?.city || state.location;
+      syncUserAvatar();
       setLocBtn(state.location);
       markLocOption(state.location);
       $('profileOverlay').classList.remove('open');
@@ -557,10 +546,6 @@
   $('sellSubmit').addEventListener('click', submitSell);
   $('profileSubmit').addEventListener('click', saveProfile);
   $('profileLogout').addEventListener('click', logout);
-  $('topLogout').addEventListener('click', logout);
-  $('p-avatar').addEventListener('input', () => {
-    updateProfileModalHeader({ ...(state.user?.profile || {}), avatar_url: $('p-avatar').value });
-  });
 
   /* ── Nav items: views, sell, "coming soon" stubs ── */
   document.querySelectorAll('.nav-item').forEach((link) => {
@@ -569,6 +554,7 @@
       if (link.dataset.view) { switchView(link.dataset.view); load(); }
       else if (link.dataset.action === 'sell') openSell();
       else if (link.dataset.action === 'profile') openProfile();
+      else if (link.dataset.action === 'logout') logout();
       else if (link.dataset.action === 'soon') toast(`${link.dataset.label} is coming soon.`, 'info');
     });
   });
@@ -613,6 +599,7 @@
     navList.style.setProperty('--nav-hover-w', (linkRect.width + padX * 2) + 'px');
     navList.style.setProperty('--nav-hover-h', (linkRect.height + padY * 2) + 'px');
     navList.style.setProperty('--nav-hover-opacity', '1');
+    navList.style.setProperty('--nav-hover-bg', link.classList.contains('nav-logout') ? 'rgba(217,45,32,0.12)' : 'var(--brand-light)');
   }
   window.setNavHover = setNavHover;
 
@@ -653,6 +640,7 @@
       const { user } = await api('/api/auth/me');
       if (!user) { location.href = '/login'; return; }
       state.user = user;
+      syncUserAvatar();
       state.profileComplete = !!user.profileComplete;
       if (user.profile?.city) {
         state.location = user.profile.city;

@@ -37,18 +37,16 @@
       Inbox
       <span class="notif-dot"></span>
     </a>
-    <a class="nav-item" href="#" data-action="profile">
-      <i class="ti ti-user"></i>
-      Profile
+    <a class="nav-item nav-profile" href="#" data-action="profile" aria-label="Profile">
+      <span class="nav-avatar" id="navProfileAvatar"><i class="ti ti-user"></i></span>
+    </a>
+    <a class="nav-item nav-logout" href="#" data-action="logout">
+      <i class="ti ti-logout"></i>
+      Logout
     </a>
   </nav>
 
-  <div class="topnav-actions">
-    <button class="topnav-logout" id="topLogout" type="button">
-      <i class="ti ti-logout"></i>
-      Logout
-    </button>
-  </div>
+  <div></div><!-- spacer col 3 to keep nav truly centered -->
 </header>
 
 <!-- MAIN -->
@@ -218,19 +216,18 @@
 <!-- Profile modal -->
 <div class="modal-overlay" id="profileOverlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
-    <div class="modal-head profile-modal-head">
-      <div class="profile-head-left">
-        <span class="profile-modal-avatar-fallback" id="profileAvatarFallback"><i class="ti ti-user"></i></span>
-        <img class="profile-modal-avatar" id="profileAvatarPreview" alt="Profile avatar" hidden>
-        <div class="profile-title-copy">
-          <h3 id="profileTitle">Create your profile</h3>
-          <div class="profile-verified-email" id="profileVerifiedEmail" hidden></div>
-        </div>
-      </div>
+    <div class="modal-head">
+      <h3 id="profileTitle">Create your profile</h3>
       <button class="modal-close" id="profileClose" data-close="profile" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div class="modal-body">
-      <div class="profile-intro" id="profileIntro">Create a profile to access the marketplace.</div>
+      <div class="profile-summary">
+        <div class="profile-modal-avatar" id="profileModalAvatar"><i class="ti ti-user"></i></div>
+        <div>
+          <div class="profile-intro" id="profileIntro">Create a profile to access the marketplace.</div>
+          <div class="profile-email" id="profileEmail" hidden></div>
+        </div>
+      </div>
       <div class="form-error" id="profileError" hidden></div>
 
       <div class="field">
