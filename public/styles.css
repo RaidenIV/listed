@@ -15,9 +15,18 @@
     --bg: #f0f0f6;
   }
 
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -853,8 +862,10 @@
 
     .main {
       width: 100%;
+      max-width: 100%;
       padding: 12px 12px 28px;
       gap: 12px;
+      overflow-x: clip;
     }
     .searchbar { border-radius: 13px; }
     .searchbar i { margin-left: 16px; }
@@ -884,15 +895,22 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      min-width: 0;
     }
-    .toolbar-text { min-width: 0; }
+    .toolbar-left { flex-wrap: wrap; }
+    .toolbar-text { min-width: 0; flex: 1 1 auto; }
     .toolbar-title,
     .toolbar-sub {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .loc-btn { flex-shrink: 0; }
+    .loc-btn {
+      flex-shrink: 1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .banner-area {
       position: static;
       transform: none;
@@ -913,7 +931,10 @@
     .grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
+      width: 100%;
+      min-width: 0;
     }
+    .lcard { min-width: 0; }
     .section-preferred {
       margin: 0;
       padding: 12px;
