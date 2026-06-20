@@ -388,7 +388,7 @@
       ? 'Create a profile to access the marketplace.'
       : 'Update how you appear to buyers and sellers.';
     $('profileClose').hidden = required;
-    $('profileLogout').hidden = !required;
+    $('profileLogout').hidden = false;
     $('profileError').hidden = true;
     fillProfileForm(state.user?.profile || {});
     openModal('profile');
@@ -557,6 +557,7 @@
   $('sellSubmit').addEventListener('click', submitSell);
   $('profileSubmit').addEventListener('click', saveProfile);
   $('profileLogout').addEventListener('click', logout);
+  $('topLogout').addEventListener('click', logout);
   $('p-avatar').addEventListener('input', () => {
     updateProfileModalHeader({ ...(state.user?.profile || {}), avatar_url: $('p-avatar').value });
   });
