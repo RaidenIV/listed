@@ -564,7 +564,7 @@
   const locOverlay = $('locOverlay');
 
   function setLocBtn(loc) {
-    locBtn.childNodes.forEach((n) => { if (n.nodeType === 3) n.textContent = ' ' + loc + ' '; });
+    locBtn.innerHTML = `<i class="ti ti-map-pin"></i><span>${esc(loc)}</span>`;
   }
   function markLocOption(loc) {
     document.querySelectorAll('.loc-option').forEach((o) =>
