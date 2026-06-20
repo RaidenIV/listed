@@ -53,7 +53,10 @@ function filterAndSort(rows, { category, location, q, sort }) {
 /* ───────────────────────── In-memory backend ───────────────────────── */
 function createMemoryStore() {
   const listings = [];
-  const saves = new Map(); // clientId -> Set(listingId)
+  const saves = new Map();       // clientId -> Set(listingId)
+  const users = [];              // { id, email, password_hash, verified, created_at }
+  const emailTokens = new Map(); // token -> { user_id, expires_at }
+  const sessions = new Map();    // token -> { user_id, expires_at }
 
   return {
     kind: 'memory',
@@ -96,6 +99,39 @@ function createMemoryStore() {
       else set.add(listingId);
       return { saved: !saved };
     },
+
+    // ── Auth: users ──
+    async createUser({ email, password_hash }) {
+      if (users.some((u) => u.email === email)) {
+        const e = new Error('EMAIL_TAKEN'); e.code = 'EMAIL_TAKEN'; throw e;
+      }
+      const row = {
+        id: newId(), email, password_hash,
+        verified: false, created_at: new Date().toISOString(),
+      };
+      users.push(row);
+      return row;
+    },
+    async getUserByEmail(email) { return users.find((u) => u.email === email) || null; },
+    async getUserById(id) { return users.find((u) => u.id === id) || null; },
+    async setUserVerified(id) { const u = users.find((x) => x.id === id); if (u) u.verified = true; },
+
+    // ── Auth: email verification tokens ──
+    async createEmailToken(userId, token, expiresAt) {
+      emailTokens.set(token, { user_id: userId, expires_at: expiresAt });
+    },
+    async getEmailToken(token) { return emailTokens.get(token) || null; },
+    async deleteEmailToken(token) { emailTokens.delete(token); },
+    async deleteEmailTokensForUser(userId) {
+      for (const [t, v] of emailTokens) if (v.user_id === userId) emailTokens.delete(t);
+    },
+
+    // ── Auth: sessions ──
+    async createSession(userId, token, expiresAt) {
+      sessions.set(token, { user_id: userId, expires_at: expiresAt });
+    },
+    async getSession(token) { return sessions.get(token) || null; },
+    async deleteSession(token) { sessions.delete(token); },
   };
 }
 
@@ -132,6 +168,31 @@ function createPostgresStore(connectionString) {
           listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           PRIMARY KEY (client_id, listing_id)
+        );
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id            UUID PRIMARY KEY,
+          email         TEXT        UNIQUE NOT NULL,
+          password_hash TEXT        NOT NULL,
+          verified      BOOLEAN     NOT NULL DEFAULT false,
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS email_tokens (
+          token      TEXT PRIMARY KEY,
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          token      TEXT PRIMARY KEY,
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
       `);
 
@@ -244,6 +305,76 @@ function createPostgresStore(connectionString) {
       );
       return { saved: true };
     },
+
+    // ── Auth: users ──
+    async createUser({ email, password_hash }) {
+      try {
+        const { rows } = await pool.query(
+          'INSERT INTO users (id, email, password_hash) VALUES ($1,$2,$3) RETURNING *',
+          [newId(), email, password_hash]
+        );
+        return userRow(rows[0]);
+      } catch (err) {
+        if (err.code === '23505') { const e = new Error('EMAIL_TAKEN'); e.code = 'EMAIL_TAKEN'; throw e; }
+        throw err;
+      }
+    },
+    async getUserByEmail(email) {
+      const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+      return rows[0] ? userRow(rows[0]) : null;
+    },
+    async getUserById(id) {
+      const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+      return rows[0] ? userRow(rows[0]) : null;
+    },
+    async setUserVerified(id) {
+      await pool.query('UPDATE users SET verified = true WHERE id = $1', [id]);
+    },
+
+    // ── Auth: email verification tokens ──
+    async createEmailToken(userId, token, expiresAt) {
+      await pool.query(
+        'INSERT INTO email_tokens (token, user_id, expires_at) VALUES ($1,$2,$3)',
+        [token, userId, expiresAt]
+      );
+    },
+    async getEmailToken(token) {
+      const { rows } = await pool.query(
+        'SELECT user_id, expires_at FROM email_tokens WHERE token = $1', [token]
+      );
+      return rows[0] || null;
+    },
+    async deleteEmailToken(token) {
+      await pool.query('DELETE FROM email_tokens WHERE token = $1', [token]);
+    },
+    async deleteEmailTokensForUser(userId) {
+      await pool.query('DELETE FROM email_tokens WHERE user_id = $1', [userId]);
+    },
+
+    // ── Auth: sessions ──
+    async createSession(userId, token, expiresAt) {
+      await pool.query(
+        'INSERT INTO sessions (token, user_id, expires_at) VALUES ($1,$2,$3)',
+        [token, userId, expiresAt]
+      );
+    },
+    async getSession(token) {
+      const { rows } = await pool.query(
+        'SELECT user_id, expires_at FROM sessions WHERE token = $1', [token]
+      );
+      return rows[0] || null;
+    },
+    async deleteSession(token) {
+      await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+    },
+  };
+}
+
+// Normalize a user row (timestamp -> ISO string) for JSON.
+function userRow(row) {
+  return {
+    ...row,
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   };
 }
 
