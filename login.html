@@ -23,15 +23,26 @@
     --surface: #f4f4f8;
     --bg: #f0f0f6;
   }
+
+  #threeBg {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
   body {
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-    background: var(--bg);
+    background: var(--brand);
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
+    overflow: hidden;
   }
   .auth-card {
     background: var(--white);
@@ -41,6 +52,9 @@
     max-width: 400px;
     padding: 32px 30px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+    position: relative;
+    z-index: 1;
+    backdrop-filter: blur(14px);
   }
   .brand { text-align: center; margin-bottom: 22px; }
   .brand-logo { font-size: 30px; font-weight: 900; letter-spacing: -1.2px; color: var(--brand); line-height: 1; }
@@ -99,6 +113,7 @@
 </style>
 </head>
 <body>
+  <canvas id="threeBg" aria-hidden="true"></canvas>
   <div class="auth-card">
     <div class="brand">
       <div class="brand-logo">Listed</div>
@@ -149,6 +164,208 @@
 
     <div class="foot"><a href="/">← Back to marketplace</a></div>
   </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+    (() => {
+      const canvas = document.getElementById('threeBg');
+      if (!canvas || !window.THREE) return;
+
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+      camera.position.z = 1;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      const brand = new THREE.Color('#ffffff');
+      const softBrand = new THREE.Color('#f7f4ff');
+      const light = new THREE.Color('#d9ceff');
+
+      const createCircleTexture = () => {
+        const size = 96;
+        const spriteCanvas = document.createElement('canvas');
+        spriteCanvas.width = size;
+        spriteCanvas.height = size;
+        const ctx = spriteCanvas.getContext('2d');
+        ctx.fillStyle = 'rgba(255,255,255,1)';
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+        const texture = new THREE.CanvasTexture(spriteCanvas);
+        texture.needsUpdate = true;
+        return texture;
+      };
+
+      const group = new THREE.Group();
+      scene.add(group);
+
+      const circleCount = 28;
+      const positions = new Float32Array(circleCount * 3);
+      const basePositions = new Float32Array(circleCount * 2);
+      const velocities = new Float32Array(circleCount * 2);
+      const colors = new Float32Array(circleCount * 3);
+      let worldWidth = 16;
+      let worldHeight = 10;
+
+      for (let i = 0; i < circleCount; i++) {
+        const i3 = i * 3;
+        const x = (Math.random() - 0.5) * worldWidth;
+        const y = (Math.random() - 0.5) * worldHeight;
+        positions[i3] = x;
+        positions[i3 + 1] = y;
+        positions[i3 + 2] = 0;
+        basePositions[i * 2] = x;
+        basePositions[i * 2 + 1] = y;
+        velocities[i * 2] = (Math.random() - 0.5) * 0.62;
+        velocities[i * 2 + 1] = (Math.random() - 0.5) * 0.52;
+
+        const mixed = brand.clone().lerp(i % 4 === 0 ? softBrand : light, i % 4 === 0 ? 0.12 : 0.18);
+        colors[i3] = mixed.r;
+        colors[i3 + 1] = mixed.g;
+        colors[i3 + 2] = mixed.b;
+      }
+
+      const maxConnections = 58;
+      const connectionDistance = 4.25;
+      const connectionPairs = [];
+      const linePositions = new Float32Array(maxConnections * 2 * 3);
+      const lineGeometry = new THREE.BufferGeometry();
+      lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: '#ffffff',
+        transparent: true,
+        opacity: 0.46,
+        linewidth: 1,
+        depthWrite: false
+      });
+      const connectionLines = new THREE.LineSegments(lineGeometry, lineMaterial);
+      group.add(connectionLines);
+
+      const particleGeometry = new THREE.BufferGeometry();
+      particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const particleMaterial = new THREE.PointsMaterial({
+        size: 11,
+        map: createCircleTexture(),
+        vertexColors: true,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        alphaTest: 0.02,
+        blending: THREE.NormalBlending
+      });
+
+      const particles = new THREE.Points(particleGeometry, particleMaterial);
+      group.add(particles);
+
+      const resize = () => {
+        const aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+        worldHeight = 10;
+        worldWidth = worldHeight * aspect;
+        camera.left = -worldWidth / 2;
+        camera.right = worldWidth / 2;
+        camera.top = worldHeight / 2;
+        camera.bottom = -worldHeight / 2;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      };
+      resize();
+      window.addEventListener('resize', resize);
+
+      let rafId;
+      let lastTime = 0;
+
+      const rebuildConnections = (attrs) => {
+        connectionPairs.length = 0;
+        const candidates = [];
+        const degree = new Array(circleCount).fill(0);
+
+        for (let i = 0; i < circleCount; i++) {
+          for (let j = i + 1; j < circleCount; j++) {
+            const ai = i * 3;
+            const bi = j * 3;
+            const dx = attrs[ai] - attrs[bi];
+            const dy = attrs[ai + 1] - attrs[bi + 1];
+            const distance = Math.hypot(dx, dy);
+            if (distance < connectionDistance) {
+              candidates.push({ i, j, distance });
+            }
+          }
+        }
+
+        candidates
+          .sort((a, b) => a.distance - b.distance)
+          .forEach(({ i, j }) => {
+            if (connectionPairs.length >= maxConnections) return;
+            if (degree[i] >= 5 || degree[j] >= 5) return;
+            connectionPairs.push([i, j]);
+            degree[i]++;
+            degree[j]++;
+          });
+      };
+
+      const animate = (time = 0) => {
+        const delta = Math.min((time - lastTime) * 0.001 || 0.016, 0.033);
+        lastTime = time;
+        const t = time * 0.001;
+        const attrs = particleGeometry.attributes.position.array;
+        const halfWidth = worldWidth / 2;
+        const halfHeight = worldHeight / 2;
+
+        for (let i = 0; i < circleCount; i++) {
+          const i2 = i * 2;
+          const i3 = i * 3;
+
+          basePositions[i2] += velocities[i2] * delta;
+          basePositions[i2 + 1] += velocities[i2 + 1] * delta;
+
+          if (basePositions[i2] < -halfWidth || basePositions[i2] > halfWidth) {
+            velocities[i2] *= -1;
+            basePositions[i2] = Math.max(-halfWidth, Math.min(halfWidth, basePositions[i2]));
+          }
+
+          if (basePositions[i2 + 1] < -halfHeight || basePositions[i2 + 1] > halfHeight) {
+            velocities[i2 + 1] *= -1;
+            basePositions[i2 + 1] = Math.max(-halfHeight, Math.min(halfHeight, basePositions[i2 + 1]));
+          }
+
+          attrs[i3] = basePositions[i2] + Math.sin(t * 1.1 + i * 1.37) * 0.18;
+          attrs[i3 + 1] = basePositions[i2 + 1] + Math.cos(t * 0.95 + i * 0.91) * 0.14;
+          attrs[i3 + 2] = 0;
+        }
+        particleGeometry.attributes.position.needsUpdate = true;
+
+        rebuildConnections(attrs);
+        linePositions.fill(0);
+
+        for (let k = 0; k < connectionPairs.length; k++) {
+          const [a, b] = connectionPairs[k];
+          const ai = a * 3;
+          const bi = b * 3;
+          const li = k * 6;
+          linePositions[li] = attrs[ai];
+          linePositions[li + 1] = attrs[ai + 1];
+          linePositions[li + 2] = 0;
+          linePositions[li + 3] = attrs[bi];
+          linePositions[li + 4] = attrs[bi + 1];
+          linePositions[li + 5] = 0;
+        }
+        lineGeometry.setDrawRange(0, connectionPairs.length * 2);
+        lineGeometry.attributes.position.needsUpdate = true;
+
+        renderer.render(scene, camera);
+        if (!reduceMotion) rafId = requestAnimationFrame(animate);
+      };
+
+      animate();
+      if (reduceMotion) cancelAnimationFrame(rafId);
+    })();
+  </script>
 
   <script src="/login.js"></script>
 </body>
