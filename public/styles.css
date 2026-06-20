@@ -113,6 +113,24 @@
   .nav-item .material-symbols-outlined {
     font-size: 20px;
   }
+  .nav-avatar-wrap {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nav-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .nav-avatar[hidden] { display: none; }
+
   .nav-item:hover { color: var(--brand); }
   .nav-item.active { color: var(--brand); }
 
@@ -612,7 +630,7 @@
   .modal-body { padding: 22px; }
 
   /* ── Sell form ── */
-  .field { margin-bottom: 16px; }
+  .field { margin-bottom: 16px; min-width: 0; }
   .field label {
     display: block;
     font-size: 12px;
@@ -625,6 +643,8 @@
   .field textarea,
   .field select {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     border: 1px solid var(--border-mid);
     border-radius: 10px;
     padding: 11px 13px;
@@ -642,13 +662,13 @@
     border-color: var(--brand);
     box-shadow: 0 0 0 3px var(--brand-border);
   }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .price-wrap { position: relative; }
+  .field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .price-wrap { position: relative; min-width: 0; }
   .price-wrap span {
     position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
     color: var(--text-secondary); font-size: 14px; pointer-events: none;
   }
-  .price-wrap input { padding-left: 26px; }
+  .price-wrap input { padding-left: 26px; box-sizing: border-box; }
   .profile-intro {
     color: var(--text-secondary);
     font-size: 13px;
