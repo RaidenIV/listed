@@ -377,7 +377,7 @@
     btn.textContent = 'Saving…';
     errBox.hidden = true;
     try {
-      const { user } = await api('/api/profile', {
+      const { user, profileEmail } = await api('/api/profile', {
         method: 'PUT',
         body: JSON.stringify(payload),
       });
@@ -387,7 +387,9 @@
       setLocBtn(state.location);
       markLocOption(state.location);
       $('profileOverlay').classList.remove('open');
-      toast('Profile saved.', 'success');
+      if (profileEmail?.sent) toast('Profile saved. Confirmation email sent.', 'success');
+      else if (profileEmail?.dev) toast('Profile saved. Email is not configured, so no message was sent.', 'info');
+      else toast('Profile saved.', 'success');
       await load();
     } catch (err) {
       errBox.textContent = err.message;

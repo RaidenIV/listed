@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { createStore } = require('./db');
-const { sendVerificationEmail, emailConfigured } = require('./email');
+const { sendVerificationEmail, sendProfileCreatedEmail, emailConfigured } = require('./email');
 
 const app = express();
 app.set('trust proxy', 1); // Railway terminates TLS at its edge; trust X-Forwarded-* headers
@@ -319,11 +319,20 @@ app.put('/api/profile', requireUser, async (req, res, next) => {
   try {
     const { errors, profile } = profileFromBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(' '), errors });
+
+    const wasProfileComplete = hasProfile(req.user);
     const user = await store.updateUserProfile(req.user.id, {
       ...profile,
       updated_at: new Date().toISOString(),
     });
-    res.json({ user: publicUser(user), profile: user.profile });
+
+    let profileEmail = { sent: false, dev: false };
+    if (!wasProfileComplete && hasProfile(user)) {
+      const result = await sendProfileCreatedEmail(user.email, user.profile);
+      profileEmail = { sent: !result.dev, dev: !!result.dev };
+    }
+
+    res.json({ user: publicUser(user), profile: user.profile, profileEmail });
   } catch (err) { next(err); }
 });
 
