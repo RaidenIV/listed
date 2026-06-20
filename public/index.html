@@ -37,7 +37,7 @@
       Inbox
       <span class="notif-dot"></span>
     </a>
-    <a class="nav-item" href="#" data-action="soon" data-label="Profile">
+    <a class="nav-item" href="#" data-action="profile">
       <i class="ti ti-user"></i>
       Profile
     </a>
@@ -204,6 +204,53 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" data-close="sell">Cancel</button>
         <button class="btn btn-primary" id="sellSubmit">Publish listing</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Profile modal -->
+<div class="modal-overlay" id="profileOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div class="modal-head">
+      <h3 id="profileTitle">Create your profile</h3>
+      <button class="modal-close" id="profileClose" data-close="profile" aria-label="Close"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="profile-intro" id="profileIntro">Create a profile to access the marketplace.</div>
+      <div class="form-error" id="profileError" hidden></div>
+
+      <div class="field">
+        <label for="p-display-name">Display name</label>
+        <input id="p-display-name" type="text" maxlength="60" placeholder="How you'll appear to buyers and sellers">
+      </div>
+
+      <div class="field">
+        <label for="p-city">City</label>
+        <select id="p-city">
+          <option>Columbus, OH</option>
+          <option>Cleveland, OH</option>
+          <option>Cincinnati, OH</option>
+          <option>Dayton, OH</option>
+          <option>Toledo, OH</option>
+          <option>Akron, OH</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="p-avatar">Photo URL <span class="hint">(optional)</span></label>
+        <input id="p-avatar" type="url" maxlength="300" placeholder="https://…">
+      </div>
+
+      <div class="field">
+        <label for="p-bio">Bio <span class="hint">(optional)</span></label>
+        <textarea id="p-bio" maxlength="160" placeholder="A short note for buyers and sellers"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="profileLogout">Sign out</button>
+        <button class="btn btn-primary" id="profileSubmit">Save profile</button>
       </div>
     </div>
   </div>

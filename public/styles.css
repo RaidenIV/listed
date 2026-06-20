@@ -649,6 +649,13 @@
     color: var(--text-secondary); font-size: 14px; pointer-events: none;
   }
   .price-wrap input { padding-left: 26px; }
+  .profile-intro {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
   .form-error {
     background: #fde8e8;
     color: #c0392b;

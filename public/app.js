@@ -24,7 +24,12 @@
       },
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Request failed.');
+    if (!res.ok) {
+      const err = new Error(data.error || 'Request failed.');
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
     return data;
   }
 
@@ -35,6 +40,8 @@
     location: 'Columbus, OH',
     q: '',
     sort: 'newest',
+    user: null,
+    profileComplete: false,
   };
 
   const CATEGORY_LABELS = {
@@ -313,22 +320,88 @@
 
   /* ── Modals (open/close) ── */
   function openModal(which) { $(which + 'Overlay').classList.add('open'); }
-  function closeModal(which) { $(which + 'Overlay').classList.remove('open'); }
+  function closeModal(which) {
+    if (which === 'profile' && !state.profileComplete) return;
+    $(which + 'Overlay').classList.remove('open');
+  }
 
   document.querySelectorAll('[data-close]').forEach((btn) =>
     btn.addEventListener('click', () => closeModal(btn.dataset.close)));
 
-  ['sellOverlay', 'detailOverlay'].forEach((id) =>
+  ['sellOverlay', 'detailOverlay', 'profileOverlay'].forEach((id) =>
     $(id).addEventListener('click', (e) => {
-      if (e.target.id === id) e.target.classList.remove('open');
+      if (e.target.id === id && (id !== 'profileOverlay' || state.profileComplete)) e.target.classList.remove('open');
     }));
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       document.querySelectorAll('.modal-overlay.open, .loc-modal-overlay.open')
-        .forEach((m) => m.classList.remove('open'));
+        .forEach((m) => {
+          if (m.id !== 'profileOverlay' || state.profileComplete) m.classList.remove('open');
+        });
     }
   });
+
+  /* ── Profile gate ── */
+  function fillProfileForm(profile = {}) {
+    $('p-display-name').value = profile.display_name || '';
+    $('p-city').value = profile.city || state.location || 'Columbus, OH';
+    $('p-avatar').value = profile.avatar_url || '';
+    $('p-bio').value = profile.bio || '';
+  }
+
+  function openProfile({ required = false } = {}) {
+    $('profileTitle').textContent = required ? 'Create your profile' : 'Your profile';
+    $('profileIntro').textContent = required
+      ? 'Create a profile to access the marketplace.'
+      : 'Update how you appear to buyers and sellers.';
+    $('profileClose').hidden = required;
+    $('profileLogout').hidden = !required;
+    $('profileError').hidden = true;
+    fillProfileForm(state.user?.profile || {});
+    openModal('profile');
+    setTimeout(() => $('p-display-name').focus(), 60);
+  }
+
+  async function saveProfile() {
+    const btn = $('profileSubmit');
+    const errBox = $('profileError');
+    const payload = {
+      display_name: $('p-display-name').value,
+      city: $('p-city').value,
+      avatar_url: $('p-avatar').value,
+      bio: $('p-bio').value,
+    };
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    errBox.hidden = true;
+    try {
+      const { user } = await api('/api/profile', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      state.user = user;
+      state.profileComplete = !!user.profileComplete;
+      state.location = user.profile?.city || state.location;
+      setLocBtn(state.location);
+      markLocOption(state.location);
+      $('profileOverlay').classList.remove('open');
+      toast('Profile saved.', 'success');
+      await load();
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save profile';
+    }
+  }
+
+  async function logout() {
+    try { await api('/api/auth/logout', { method: 'POST' }); }
+    finally { location.href = '/login'; }
+  }
 
   /* ── Sell flow ── */
   function openSell() {
@@ -349,7 +422,7 @@
       category: $('f-category').value,
       city: $('f-city').value,
       location: $('f-location').value,
-      seller_name: $('f-seller').value,
+      seller_name: $('f-seller').value || state.user?.profile?.display_name || '',
       image_url: $('f-image').value,
       description: $('f-desc').value,
     };
@@ -448,6 +521,8 @@
   /* ── Sell buttons ── */
   $('sellBtn').addEventListener('click', openSell);
   $('sellSubmit').addEventListener('click', submitSell);
+  $('profileSubmit').addEventListener('click', saveProfile);
+  $('profileLogout').addEventListener('click', logout);
 
   /* ── Nav items: views, sell, "coming soon" stubs ── */
   document.querySelectorAll('.nav-item').forEach((link) => {
@@ -455,6 +530,7 @@
       e.preventDefault();
       if (link.dataset.view) { switchView(link.dataset.view); load(); }
       else if (link.dataset.action === 'sell') openSell();
+      else if (link.dataset.action === 'profile') openProfile();
       else if (link.dataset.action === 'soon') toast(`${link.dataset.label} is coming soon.`, 'info');
     });
   });
@@ -534,6 +610,32 @@
     if (active) setNavHover(active);
   });
 
+  async function initApp() {
+    try {
+      const { user } = await api('/api/auth/me');
+      if (!user) { location.href = '/login'; return; }
+      state.user = user;
+      state.profileComplete = !!user.profileComplete;
+      if (user.profile?.city) {
+        state.location = user.profile.city;
+        setLocBtn(state.location);
+        markLocOption(state.location);
+      }
+      if (!state.profileComplete) {
+        sectionPreferred.hidden = true;
+        sectionPro.hidden = true;
+        gridMain.innerHTML = '';
+        toolbarSub.textContent = 'Profile required';
+        openProfile({ required: true });
+        return;
+      }
+      await load();
+    } catch (err) {
+      if (err.status === 401) location.href = '/login';
+      else toast(err.message, 'error');
+    }
+  }
+
   /* ── Go ── */
-  load();
+  initApp();
 })();

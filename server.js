@@ -39,7 +39,7 @@ function queryOpts(req) {
 app.get('/api/health', (_req, res) => res.json({ ok: true, store: store.kind }));
 
 // Browse listings (with category/location/search/sort filters)
-app.get('/api/listings', async (req, res, next) => {
+app.get('/api/listings', requireProfile, async (req, res, next) => {
   try {
     const listings = await store.listListings(queryOpts(req));
     const savedIds = new Set(await store.getSavedIds(clientId(req)));
@@ -48,7 +48,7 @@ app.get('/api/listings', async (req, res, next) => {
 });
 
 // Single listing detail
-app.get('/api/listings/:id', async (req, res, next) => {
+app.get('/api/listings/:id', requireProfile, async (req, res, next) => {
   try {
     const listing = await store.getListing(req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found.' });
@@ -58,7 +58,7 @@ app.get('/api/listings/:id', async (req, res, next) => {
 });
 
 // Create a listing (the "Sell" flow)
-app.post('/api/listings', async (req, res, next) => {
+app.post('/api/listings', requireProfile, async (req, res, next) => {
   try {
     const b = req.body || {};
     const errors = [];
@@ -85,7 +85,7 @@ app.post('/api/listings', async (req, res, next) => {
       location,
       city,
       tier,
-      seller_name: String(b.seller_name || '').trim() || 'A seller',
+      seller_name: String(b.seller_name || '').trim() || req.user.profile.display_name,
       image_url:
         String(b.image_url || '').trim() ||
         'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=480&h=360&fit=crop&auto=format',
@@ -97,7 +97,7 @@ app.post('/api/listings', async (req, res, next) => {
 });
 
 // Saved listings for this visitor
-app.get('/api/saved', async (req, res, next) => {
+app.get('/api/saved', requireProfile, async (req, res, next) => {
   try {
     const listings = await store.getSavedListings(clientId(req), queryOpts(req));
     res.json({ listings: listings.map((l) => ({ ...l, saved: true })) });
@@ -105,7 +105,7 @@ app.get('/api/saved', async (req, res, next) => {
 });
 
 // Toggle a save on/off
-app.post('/api/listings/:id/save', async (req, res, next) => {
+app.post('/api/listings/:id/save', requireProfile, async (req, res, next) => {
   try {
     const result = await store.toggleSave(clientId(req), req.params.id);
     if (!result) return res.status(404).json({ error: 'Listing not found.' });
@@ -119,7 +119,14 @@ const SESSION_COOKIE = 'listed_session';
 const SESSION_DAYS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const randomToken = () => crypto.randomBytes(32).toString('hex');
-const publicUser = (u) => ({ id: u.id, email: u.email, verified: u.verified });
+const hasProfile = (u) => !!(u && u.profile && String(u.profile.display_name || '').trim());
+const publicUser = (u) => ({
+  id: u.id,
+  email: u.email,
+  verified: u.verified,
+  profile: u.profile || null,
+  profileComplete: hasProfile(u),
+});
 
 function parseCookies(req) {
   const out = {};
@@ -160,6 +167,38 @@ async function currentUser(req) {
   if (!sess) return null;
   if (new Date(sess.expires_at) < new Date()) { await store.deleteSession(token); return null; }
   return (await store.getUserById(sess.user_id)) || null;
+}
+
+async function requireUser(req, res, next) {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ error: 'Sign in to continue.', authRequired: true });
+    req.user = user;
+    next();
+  } catch (err) { next(err); }
+}
+
+async function requireProfile(req, res, next) {
+  try {
+    const user = req.user || await currentUser(req);
+    if (!user) return res.status(401).json({ error: 'Sign in to continue.', authRequired: true });
+    if (!hasProfile(user)) return res.status(403).json({ error: 'Create your profile to continue.', profileRequired: true });
+    req.user = user;
+    next();
+  } catch (err) { next(err); }
+}
+
+function profileFromBody(body) {
+  const display_name = String(body?.display_name || '').trim();
+  const city = String(body?.city || '').trim() || 'Columbus, OH';
+  const bio = String(body?.bio || '').trim();
+  const avatar_url = String(body?.avatar_url || '').trim();
+  const errors = [];
+  if (display_name.length < 2) errors.push('Add a display name of at least 2 characters.');
+  if (display_name.length > 60) errors.push('Keep your display name under 60 characters.');
+  if (bio.length > 160) errors.push('Keep your bio under 160 characters.');
+  if (avatar_url.length > 300) errors.push('Keep your photo URL under 300 characters.');
+  return { errors, profile: { display_name, city, bio, avatar_url } };
 }
 
 async function startSession(req, res, userId) {
@@ -272,17 +311,48 @@ app.get('/api/auth/me', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/* ──────────────────────── Static frontend ────────────────────── */
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Login / sign-up page at a clean URL.
-app.get('/login', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+app.get('/api/profile', requireUser, async (req, res) => {
+  res.json({ profile: req.user.profile || null, profileComplete: hasProfile(req.user) });
 });
 
-// Anything else falls back to the app shell (single-page client).
-app.get(/.*/, (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.put('/api/profile', requireUser, async (req, res, next) => {
+  try {
+    const { errors, profile } = profileFromBody(req.body);
+    if (errors.length) return res.status(400).json({ error: errors.join(' '), errors });
+    const user = await store.updateUserProfile(req.user.id, {
+      ...profile,
+      updated_at: new Date().toISOString(),
+    });
+    res.json({ user: publicUser(user), profile: user.profile });
+  } catch (err) { next(err); }
+});
+
+/* ──────────────────────── Static frontend ────────────────────── */
+// Login / sign-up page at a clean URL.
+app.get('/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+app.get('/login.js', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'login.js'));
+});
+
+app.get(['/', '/index.html'], async (req, res, next) => {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.redirect('/login');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } catch (err) { next(err); }
+});
+
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+
+// Anything else falls back to the app shell (single-page client) after sign-in.
+app.get(/.*/, async (req, res, next) => {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.redirect('/login');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } catch (err) { next(err); }
 });
 
 // JSON error handler

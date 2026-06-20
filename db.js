@@ -54,7 +54,7 @@ function filterAndSort(rows, { category, location, q, sort }) {
 function createMemoryStore() {
   const listings = [];
   const saves = new Map();       // clientId -> Set(listingId)
-  const users = [];              // { id, email, password_hash, verified, created_at }
+  const users = [];              // { id, email, password_hash, verified, profile, created_at }
   const emailTokens = new Map(); // token -> { user_id, expires_at }
   const sessions = new Map();    // token -> { user_id, expires_at }
 
@@ -107,7 +107,7 @@ function createMemoryStore() {
       }
       const row = {
         id: newId(), email, password_hash,
-        verified: false, created_at: new Date().toISOString(),
+        verified: false, profile: null, created_at: new Date().toISOString(),
       };
       users.push(row);
       return row;
@@ -115,6 +115,12 @@ function createMemoryStore() {
     async getUserByEmail(email) { return users.find((u) => u.email === email) || null; },
     async getUserById(id) { return users.find((u) => u.id === id) || null; },
     async setUserVerified(id) { const u = users.find((x) => x.id === id); if (u) u.verified = true; },
+    async updateUserProfile(id, profile) {
+      const u = users.find((x) => x.id === id);
+      if (!u) return null;
+      u.profile = { ...profile, updated_at: new Date().toISOString() };
+      return u;
+    },
 
     // ── Auth: email verification tokens ──
     async createEmailToken(userId, token, expiresAt) {
@@ -176,9 +182,11 @@ function createPostgresStore(connectionString) {
           email         TEXT        UNIQUE NOT NULL,
           password_hash TEXT        NOT NULL,
           verified      BOOLEAN     NOT NULL DEFAULT false,
+          profile       JSONB,
           created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
         );
       `);
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB;`);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS email_tokens (
           token      TEXT PRIMARY KEY,
@@ -329,6 +337,13 @@ function createPostgresStore(connectionString) {
     },
     async setUserVerified(id) {
       await pool.query('UPDATE users SET verified = true WHERE id = $1', [id]);
+    },
+    async updateUserProfile(id, profile) {
+      const { rows } = await pool.query(
+        'UPDATE users SET profile = $2 WHERE id = $1 RETURNING *',
+        [id, profile]
+      );
+      return rows[0] ? userRow(rows[0]) : null;
     },
 
     // ── Auth: email verification tokens ──
